@@ -289,11 +289,40 @@ function tryLogin(){
 function skipLogin(){ showMain(); }
 function showMain(){ document.getElementById('loginPage').style.display='none'; document.getElementById('mainUI').style.display='block'; nav('requirements'); }
 
-/* NAV */
+// Robust nav function — hides/shows pages and loads summaries when needed
 function nav(id){
-  const pages = ['requirements','lecturers','placements','emi','summaries','howto'];
-  pages.forEach(p => document.getElementById(p).style.display = (p===id ? 'block':'none'));
+  // list of your page ids (keep in sync with your HTML section ids)
+  const pages = [
+    'requirements',
+    'lecturers',
+    'placements',
+    'emi',
+    'summaries',
+    'howto'
+  ];
+
+  // hide all pages
+  pages.forEach(p => {
+    const el = document.getElementById(p);
+    if(el) el.style.display = 'none';
+  });
+
+  // show the requested page (if exists)
+  const showEl = document.getElementById(id);
+  if(showEl) showEl.style.display = 'block';
+
+  // if the summaries page opened, load data from Sheets
+  if(id === 'summaries'){
+    if(typeof loadAllSummaries === 'function'){
+      // call the loader you added earlier
+      loadAllSummaries();
+    } else {
+      // graceful fallback if loader missing
+      console.warn('loadAllSummaries() not found — summaries will not auto-load.');
+    }
+  }
 }
+
 
 /* EXPORT CSV utility */
 function exportTableCSV(tableId, filename){
@@ -481,6 +510,72 @@ function showPlacementSummary(){ document.getElementById('emi_print').style.disp
 /* Filters for tables already included above */
 
 document.addEventListener('DOMContentLoaded', function(){ nav('requirements'); /* try to auto-skip login in dev if ADMIN_PIN blank */ if(!ADMIN_PIN) showMain(); });
+  /* ---------------- Load summaries from sheets ---------------- */
+
+function loadAllSummaries(){
+  // Requirements
+  jsonpGet(SCRIPT_URL + '?action=fetch_requirements', 'reqCB', resp => {
+    if(resp && resp.rows) populateReqTable(resp.rows);
+  });
+
+  // Lecturers
+  jsonpGet(SCRIPT_URL + '?action=fetch_lecturers', 'lecCB', resp => {
+    if(resp && resp.rows) populateLecTable(resp.rows);
+  });
+
+  // Placements (EMI)
+  jsonpGet(SCRIPT_URL + '?action=fetch_placements', 'plCB', resp => {
+    if(resp && resp.rows) populatePlacementTable(resp.rows);
+  });
+}
+
+/* -------- populate summary tables -------- */
+function populateReqTable(rows){
+  const tbody = document.querySelector('#req_summary_table tbody');
+  tbody.innerHTML = "";
+  rows.reverse().forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.RefNo||""}</td>
+      <td>${r.CollegeName||""}</td>
+      <td>${r.City||""}</td>
+      <td>${r.Subject||""}</td>
+      <td>${r.NoOfFaculty||""}</td>
+      <td>${r.SalaryRange||""}</td>
+      <td>${r.CollectedBy||""}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function populateLecTable(rows){
+  const tbody = document.querySelector('#lec_summary_table tbody');
+  tbody.innerHTML = "";
+  rows.reverse().forEach(r=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.RefNo||""}</td>
+      <td>${r.LecturerName||""}</td>
+      <td>${r.Phone||""}</td>
+      <td>${r.Subject||""}</td>
+      <td>${r.CVReceived||""}</td>
+      <td>${r.CollectedBy||""}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function populatePlacementTable(rows){
+  const tbody = document.querySelector('#emi_table tbody');
+  tbody.innerHTML = "";
+  rows.reverse().forEach(r=>{
+    const tr1=document.createElement("tr");
+    tr1.innerHTML = `
+      <td>${r.RefNo||""}</td><td>EMI 1</td><td>${r.EMI1Amount||""}</td><td>${r.EMI1Date||""}</td>`;
+    const tr2=document.createElement("tr");
+    tr2.innerHTML = `
+      <td>${r.RefNo||""}</td><td>EMI 2</td><td>${r.EMI2Amount||""}</td><td>${r.EMI2Date||""}</td>`;
+    tbody.append(tr1, tr2);
+  });
+}
 </script>
 </body>
 </html>
